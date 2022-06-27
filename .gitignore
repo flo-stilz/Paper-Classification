@@ -1,0 +1,31 @@
+# dataset
+Data/Data_abs_huge2.csv
+Data/Data_complete.csv
+Data/Data_large.csv
+Data/test.csv
+Data/Data_large_arXiv.csv
+
+# cache
+Code/__pycache__
+
+# logs and checkpoints
+Code/cite_logs
+Code/lightning_logs
+Code/tb_logs
+Code/year_logs
+Code/.ipynb_checkpoints
+
+# tuning
+Code/tuning.txt
+
+# unnecessary Code
+Code/BatchNormModel.py
+Code/test.py
+Code/hyperparameter_tuning.py
+Code/Data_scraping.py
+Code/Data_cleaning.py
+Code/clean_checkpoints.py
+Code/venues.py
+Code/Image_extraction.py
+Code/Abstract_extraction.py
+Code/Paper_Classification.ipynb
