@@ -1,1 +1,1 @@
-Paper-Classification
+Scientific Paper-Classification
