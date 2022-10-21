@@ -3,7 +3,12 @@
 <p align="center"><img src="paper & figures/Qualitative_results.jpg" width="800px"/></p>
 
 ## Introduction
-3D visual grounding is the task of localizing a target object in a 3D scene given a natural language description. This work focuses on developing a transformer architecture for bounding box prediction around a target object that is described by a natural language description.
+This project focuses on three main tasks:
+1) Keywords/Area prediction 
+2) Publication Year prediction
+3) Citation/Years Count Prediction
+
+These tasks are achieved by utilizing both visual and textual features. The visual features are the front page and figures from a given publication paper. The textual features are the title and the abstract of a given publication.
 
 
 ## Setup + Dataset
@@ -11,13 +16,12 @@ For the setup and dataset preparation please contact [Florian Stilz](https://git
 from the [Technical University of Munich](https://www.tum.de/en/).
 
 ## Architecture
-The architecture used for this project is as follows:
+The architecture used for this project is seperated in three main parts namely Textual Module in green, Visual Module in blue, and the Concatenation and Classification Module in red as follows:
 <p align="center"><img src="paper & figures/network_architecture.jpg" width="1000px"/></p>
 
 
 ## Results
-To reproduce our results we provide the following commands along with the results. The pretrained models are in the outputs folder.
-We have implemented a chunking mechanism which significantly reduced the training time compared to the normal ScanRefer. The training of the baseline model takes around 4 hours on a current GPU (NVIDIA Tesla T4).
+To reproduce my results I provide the following commands along with the results.
 
 <table>
     <col>
