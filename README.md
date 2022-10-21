@@ -21,7 +21,7 @@ The architecture used for this project is seperated in three main parts namely T
 
 
 ## Results
-To reproduce my results I provide the following commands along with the results for the best models for each of the three tasks.
+To reproduce my results I provide the following commands along with the results for the best models for each of the three tasks. Note, for reproduction the dataset must be acquired first!
 
 
 <table>
