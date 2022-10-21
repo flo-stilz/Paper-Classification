@@ -1,5 +1,4 @@
-# Paper Classification Keywords/Area
-
+# Evaluation of Paper Classification models
 
 from dataset import create_labels_year, create_labels_reg, create_labels_key, over_sampling, match_data_to_images, remove_empty_fig, create_labels_mtl_year_key
 from Data_cleaning import pre_tokenize_title, pre_tokenize_abstract
@@ -24,25 +23,27 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 import optuna
 from optuna.integration import PyTorchLightningPruningCallback
+from pytorch_lightning.loggers import TensorBoardLogger
 import warnings
 from sklearn.model_selection import ShuffleSplit # or StratifiedShuffleSplit
 import sys
 import argparse
 import warnings
+from argparse import Namespace
 
 from models import Bert, CNN
-from models import Key_Classifier, MTL_YK_Classifier
+from models import Key_Classifier, MTL_YK_Classifier, Cite_Classifier, Year_Classifier, Baseline
 
-nltk.download('punkt')
-nltk.download('wordnet') # needed for synonyms in augmentation
-nltk.download('omw-1.4')
+def largest_indices(ary, n):
+    """Returns the n largest indices from a numpy array."""
+    flat = ary.flatten()
+    indices = np.argpartition(flat, -n)[-n:]
+    indices = indices[np.argsort(-flat[indices])]
+    return np.unravel_index(indices, ary.shape)
 
-def load_data(hparams, mtl):
+def load_data(hparams, mtl, opt):
     data_path = Path(os.path.dirname(os.path.abspath(os.getcwd())))
-    #data_root = os.path.join(data_path, "Data/Data_large_arXiv.csv")
-    #data_root = os.path.join(data_path, "Data/Data_large_arXiv_Complete.csv")
     data_root = os.path.join(data_path, "Data/Scientific_Paper_Dataset.csv")
-    #data_root = os.path.join(data_path, "Data/Data_large_arXiv_Images_Test.csv")
     dataset = pd.read_csv(data_root)
     
     data = dataset.to_numpy()  
@@ -51,8 +52,12 @@ def load_data(hparams, mtl):
                                        
     if mtl:
         labels, data, id2tag_year, id2tag_key = create_labels_mtl_year_key(data)
-    else:
+    elif opt.task=="key":
         labels, data, id2tag = create_labels_key(data)
+    elif opt.task=="cite":
+        labels, data, id2tag = create_labels_reg(data)
+    elif opt.task=="year":
+        labels, data, id2tag = create_labels_year(data)
 
 
     if type(labels[0])==float:
@@ -80,21 +85,28 @@ def load_data(hparams, mtl):
     X_train, X_test, y_train, y_test = train_test_split(data2[:,(0,7,16,17)], labels2, test_size=0.2, random_state=1) # set to (0,7,16) for images
     X_val, X_test, y_val, y_test = train_test_split(X_test, y_test, test_size=0.5, random_state=1)
 
-    X_train = X_train[:int(len(X_train)/1)]
+    # Max Class label for baseline based on train set:
+    print(np.sum(y_train,axis=0))
+    max_class = largest_indices(np.sum(y_train,axis=0),1)
+    print(max_class)
+
+    # Train data not needed
+    X_train = X_train[:int(len(X_train)/1000)]
     X_val = X_val[:int(len(X_val)/1)]
-    y_train = y_train[:int(len(y_train)/1)]
+    y_train = y_train[:int(len(y_train)/1000)]
     y_val = y_val[:int(len(y_val)/1)]
+    # small Test for now:
     X_test = X_test[:int(len(X_test)/1)]
     y_test = y_test[:int(len(y_test)/1)]
-
 
     print("Length of actually used Data: "+ str(len(X_val)+len(X_train)))
     print("Length of Training Data: "+ str(len(X_train)))
     print("Length of Validation Data: "+ str(len(X_val)))
+    print("Length of Test Data: "+ str(len(X_test)))
 
     """Label Distribution:"""
-    print("Label Distribution in Training set")
-    print(np.sum(y_train,axis=0)/len(y_train))
+    print("Label Distribution in Test set")
+    print(np.sum(y_test,axis=0)/len(y_test))
     print("Label Distribution in Validation set")
     print(np.sum(y_val,axis=0)/len(y_val))
     
@@ -108,24 +120,23 @@ def load_data(hparams, mtl):
     hparams["n_hidden_out"] = num_labels
     hparams["num_labels_year"] = num_labels_year
     hparams["num_labels_key"] = num_labels_key
-    hparams["id2tag"] = id2tag
-    hparams["id2tag_year"] = id2tag_year
-    hparams["id2tag_key"] = id2tag_key
     hparams["Train_data_length"] = len(X_train)
     hparams["Val_data_length"] = len(X_val)
     
-    return train_data, val_data, test_data, X_test, y_test, hparams
     
-def train_model(hparams, train_data, val_data, test_data, opt, X_test, y_test):
-    results = []
+    return train_data, val_data, test_data, hparams, id2tag, id2tag_year, id2tag_key, X_test, y_test, max_class
+    
+def evaluate_model(hparams, train_data, val_data, test_data, opt, id2tag, id2tag_year, id2tag_key, X_test, y_test, max_class):
+
+    PATH = os.path.join(os.getcwd(), opt.model_path)
 
     """# Model Architecture:"""
     train = DataLoader(train_data, batch_size=hparams['batch_size'], shuffle=True)
     val = DataLoader(val_data, batch_size=hparams['batch_size'], shuffle=False, drop_last=True)
     test = DataLoader(test_data, batch_size=hparams['batch_size'], shuffle=False, drop_last=True)
 
-
     # Pretrained models Initialization:
+    print(hparams["input"])
     if "title" in hparams["input"]:
         bert_t = Bert(hparams)
     else:
@@ -139,27 +150,29 @@ def train_model(hparams, train_data, val_data, test_data, opt, X_test, y_test):
     else:
         cnn = nn.Identity()
     if "figures" in hparams["input"]:
-        cnn = CNN(hparams)
+        fig_cnn = CNN(hparams)
     else:
-        cnn = nn.Identity()
-    
-    os.environ["CUDA_VISIBLE_DEVICES"]=str(opt.gpu)
-    
-    if hparams["mtl"]:
-        classifier = MTL_YK_Classifier(hparams, bert_t, bert_a, cnn, hparams["id2tag_year"], hparams["id2tag_key"], train_data, val_data, test_data)
-    else:
-        classifier = Key_Classifier(hparams, bert_t, bert_a, cnn, hparams["id2tag"], train_data, val_data, test_data)
+        fig_cnn = nn.Identity()
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
+    os.environ["CUDA_VISIBLE_DEVICES"]="3"
+
+    if hparams["mtl"] and opt.task=="key":
+        classifier = MTL_YK_Classifier(hparams, bert_t=bert_t, bert_a=bert_a, cnn=cnn, id2tag_year=id2tag_year, id2tag_key=id2tag_key, train_set=train_data, val_set=val_data, test_set=test_data)
+    elif opt.task=="key":
+        classifier = Key_Classifier(hparams, bert_t=bert_t, bert_a=bert_a, cnn=cnn, id2tag=id2tag, train_set=train_data, val_set=val_data, test_set=test_data)
+    elif opt.task=="year":
+        classifier = Year_Classifier(hparams, bert_t=bert_t, bert_a=bert_a, cnn=cnn, cnn_fig=fig_cnn, id2tag=id2tag, train_set=train_data, val_set=val_data, test_set=test_data)
+    elif opt.task=="cites":
+        classifier = Cite_Classifier(hparams, bert_t=bert_t, bert_a=bert_a, cnn=cnn, fig_cnn=fig_cnn, id2tag=id2tag, train_set=train_data, val_set=val_data, test_set=test_data)
+        
+    if opt.baseline:
+        classifier = Baseline(hparams, max_class, opt.task, train_data, val_data, test_data)
+        
     classifier = classifier.to(device)
     print(classifier)
-    early_stop_callback = EarlyStopping(monitor="val_loss", min_delta=0.00, patience=5, verbose=False, mode="min")
-    if hparams["mtl"]:
-        best_checkpoint = ModelCheckpoint(monitor='val_f1_macro_k', save_top_k=1, mode="max")
-    else:
-        best_checkpoint = ModelCheckpoint(monitor='val_f1_macro', save_top_k=1, mode="max")
-    trainer = None
+    # Create Trainer
     if hparams["input"] == "title":
         logger = TensorBoardLogger("tb_logs")
     elif hparams["input"] == "abstract":
@@ -172,98 +185,31 @@ def train_model(hparams, train_data, val_data, test_data, opt, X_test, y_test):
         logger = TensorBoardLogger("tb_figures_logs")
     elif hparams["input"] == "title+abstract+image":
         logger = TensorBoardLogger("tb_text_image_logs")
-    elif hparams["input"] == "title+abstract+figures":
-        logger = TensorBoardLogger("tb_text_figures_logs")
-    trainer = pl.Trainer(
-        max_epochs=opt.epochs,
-        gpus=1 if torch.cuda.is_available() else None,
-        #distributed_backend='dp',
-        callbacks=[early_stop_callback, best_checkpoint],
-        num_sanity_val_steps = 0,
-        #logger=True,
-        #log_every_n_steps=50,
-        logger=logger,
-        #accumulate_grad_batches=hparams["acc_grad"],
-    )
-    trainer.validate(classifier, dataloaders=val)
-    trainer.fit(classifier) # train the standard classifier 
-    final_model_path = trainer.checkpoint_callback.best_model_path # load best model checkpoint
-    result = trainer.validate(ckpt_path=final_model_path, dataloaders=val)
-    classifier.load_state_dict(torch.load(final_model_path)['state_dict'], strict=True)
-    trainer.validate(classifier, dataloaders=val)
-    hp_results = hparams.copy()
-    if hparams["mtl"]:
-        hp_results['val_f1_macro_y'] = result[0]['val_f1_macro_y']
-        hp_results['val_f1_micro_y'] = result[0]['val_f1_micro_y']
-        hp_results['val_loss'] = result[0]['val_loss']
-        hp_results['val_acc_y'] = result[0]['val_acc_y']
-        hp_results['val_f1_macro_k'] = result[0]['val_f1_macro_k']
-        hp_results['val_f1_micro_k'] = result[0]['val_f1_micro_k']
-        hp_results['val_acc_k'] = result[0]['val_acc_k']
-        print(result[0]['val_f1_macro_k'])
-    else:
-        hp_results['val_f1_macro'] = result[0]['val_f1_macro']
-        hp_results['val_f1_micro'] = result[0]['val_f1_micro']
-        hp_results['val_loss'] = result[0]['val_loss']
-        hp_results['val_acc'] = result[0]['val_acc']
-        print(result[0]['val_f1_macro'])
-    results.append(hp_results)
+    trainer = pl.Trainer(weights_summary=None,
+                         gpus=1 if torch.cuda.is_available() else None,
+                         logger=logger,
+                         checkpoint_callback=False)
     
-    results_test = trainer.validate(classifier, dataloaders=test)
+    checkpoint = torch.load(PATH)
+    model_weights = checkpoint["state_dict"]
     
-    # Inference:
+    if not opt.baseline:
+        print(classifier.state_dict()['classifier.1.weight'])
+        print(model_weights['classifier.1.weight'])
+        print(model_weights['bert_t.bert.encoder.layer.6.output.dense.weight'])
+        print(classifier.state_dict()['bert_t.bert.encoder.layer.6.output.dense.weight'])
+        #classifier = Key_Classifier.load_from_checkpoint(PATH, bert_t=bert_t, bert_a=bert_a, cnn=cnn)
+        classifier.load_state_dict(model_weights,strict=True)
+        print(classifier.state_dict()['classifier.1.weight'])
+        print(classifier.state_dict()['bert_t.bert.encoder.layer.6.output.dense.weight'])
+    
     classifier.eval()
-    tokenizer = AutoTokenizer.from_pretrained(hparams['model'])
-    if "title" in hparams["input"]:
-        print(list(X_test[:100,0]))
-        encodings_t = tokenizer(list(X_test[:100,0]), is_split_into_words=False, return_offsets_mapping=True, padding=True, truncation=True, max_length=512)
-        encodings_t.pop("offset_mapping")
-        print(encodings_t)
-        input_ids_t = torch.LongTensor(encodings_t['input_ids']).reshape(len(encodings_t['input_ids']), len(encodings_t['input_ids'][0]))
-        print(input_ids_t.shape)
-        masks_t = torch.LongTensor(encodings_t['attention_mask']).reshape(len(encodings_t['input_ids']), len(encodings_t['input_ids'][0]))
-        
-    if "abstract" in hparams["input"]:
-        encodings_a = tokenizer(list(X_test[:100,1]), is_split_into_words=False, return_offsets_mapping=True, padding=True, truncation=True, max_length=512)
-        encodings_a.pop("offset_mapping")
-        input_ids_a = torch.LongTensor(encodings_a['input_ids']).reshape(len(encodings_a['input_ids']), len(encodings_a['input_ids'][0]))
-        masks_a = torch.LongTensor(encodings_a['attention_mask']).reshape(len(encodings_a['input_ids']), len(encodings_a['input_ids'][0]))
-    else:
-        input_ids_a = None
-        masks_a = None
-        
-    label = np.array(y_test[:100])
-    out = classifier.forward(input_ids_t, masks_t, input_ids_a, masks_a, None, None, None)
-    print(out.shape)
-    # for classification:
-    preds = torch.tensor(out.detach().clone() > 0.5, dtype=float).detach().clone()
-    tar = []
-    for i in range(0,len(label)):
-      t = []
-      for j in range(0,len(label[0])):
-        if label[i,j]==1:
-          t.append(j)
-      tar.append(t)
-
-    pred = []
-    for i in range(0,len(preds)):
-      a = []
-      for j in range(0,len(preds[0])):
-        if preds[i,j]==1:
-          a.append(j)
-      pred.append(a)
-    print(pred)
-    #print(preds.argmax(-1))
-    print(tar)
     
-    with open('Keyword_Inference.txt', 'a') as f:
-        f.write(str(pred)+"\n")
-        f.write(str(tar)+"\n")
-        f.write(str(hparams["id2tag"])+"\n")
-        f.write(str(results_test[0]))
-        
-        
-    return results
+    print("Performance on Validation set")
+    trainer.validate(classifier, dataloaders=val)
+    print("Performance on Test set")
+    trainer.validate(classifier, dataloaders=test)
+
 
 def parser_init():
     
@@ -274,17 +220,21 @@ def parser_init():
 
     parser.add_argument('--mtl', default=False, type=bool, required=False,
                         help='Multi-tasking for key and year')
+    parser.add_argument('--task', type=str, required=True,
+                        help='key, year, or cites')
+    parser.add_argument('--model_path', type=str, required=True,
+                        help='Path to trained model to evaluate')
     parser.add_argument('--n_hidden_1', type=int, required=False, default=768,
                         help='Num of hidden units in first layer of classifier')
     parser.add_argument('--model', type=str, required=False, default="allenai/scibert_scivocab_uncased",
                         help="Pytorch description for text model like e.g. distilbert-base-uncased")
-    parser.add_argument('--batch_size', type=int, required=False, default=8,
+    parser.add_argument('--batch_size', type=int, required=False, default=2,
                         help='Batch size!')
-    parser.add_argument('--lr', type=float, required=False, default=2e-5,
+    parser.add_argument('--lr', type=float, required=False, default=1e-4,
                         help='Learning Rate!')
-    parser.add_argument('--drop', type=float, required=False, default=0.2,
+    parser.add_argument('--drop', type=float, required=False, default=0.1,
                         help='Dropout of classifier')
-    parser.add_argument('--bdrop', type=float, required=False, default=0.1,
+    parser.add_argument('--bdrop', type=int, required=False, default=0.1,
                         help='Dropout of BERT model')
     parser.add_argument('--freeze_emb', type=bool, required=False, default=True,
                         help='Freeze embedding layer of BERT')
@@ -300,11 +250,10 @@ def parser_init():
                         help='Input features: options: title, abstract, image, and figures -> combinations should be combined via + e.g. title+abstract')
     parser.add_argument('--img_sz_ratio', type=float, required=False, default=1.0,
                         help='Ratio for initial image size e.g. 0.5 would resize image to half the width and height.')
-    parser.add_argument('--epochs', type=int, required=False, default=10,
-                        help='Set maxs number of epochs.')
-    parser.add_argument('--gpu', type=int, required=True,
-                        help='Set the name of the GPU in the system')
+    parser.add_argument('--baseline', type=bool, required=False, default=False,
+                        help='Use basic baseline for given task')
     opt = parser.parse_args()
+    
     hparams = { # title ... # abstract: ...
         "model": opt.model,
         "n_hidden_1": opt.n_hidden_1, # 170000 for both so far
@@ -358,10 +307,6 @@ def parser_init():
 if __name__ == '__main__':
     warnings.filterwarnings('ignore')
     hparams, opt = parser_init()
-    train_data, val_data, test_data, X_test, y_test, hparams = load_data(hparams, hparams['mtl'])
-    results = []
-    results_sub = train_model(hparams,train_data, val_data, test_data, opt, X_test, y_test)
-    results = results + results_sub
-    tuning_value = 1
-    res_frame = pd.DataFrame(results)
-    res_frame.to_csv(str(os.getcwd()) + '/Tuning_results_'+str(hparams['input'])+'_'+str(hparams['batch_size'])+'_'+str(tuning_value)+'.csv', index=False)
+    train_data, val_data, test_data, hparams, id2tag, id2tag_year, id2tag_key, X_test, y_test, max_class = load_data(hparams, hparams['mtl'], opt)
+
+    evaluate_model(hparams, train_data, val_data, test_data, opt, id2tag, id2tag_year, id2tag_key, X_test, y_test, max_class)
