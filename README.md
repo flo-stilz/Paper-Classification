@@ -35,14 +35,16 @@ To reproduce my results I provide the following commands along with the results.
         <th rowspan=2>Comments</th>
     </tr>
     <tr>
-        <td>Acc<!-- -->@<!-- -->0.25IoU</td>
-        <td>Acc<!-- -->@<!-- -->0.5IoU</td>
+        <td>F1-Micro</td>
+        <td>F1-Macro</td>
+        <td>Accuracy</td>
     </tr>
     <tr>
         <td>ScanRefer (Baseline)</td>
         <td><pre lang="shell">python scripts/train.py 
         --use_color --lr 1e-3 --batch_size 14</pre></td>
         <td>37.05</td>
+        <td>23.93</td>
         <td>23.93</td>
         <td>xyz + color + height</td>
     </tr>
@@ -53,6 +55,7 @@ To reproduce my results I provide the following commands along with the results.
         --use_pretrained "pretrained_VoteNet" 
         --lr 1e-3 --batch_size 14</pre></td>
         <td>37.11</td>
+        <td>25.21</td>
         <td>25.21</td>
         <td>xyz + color + height</td>
     </tr>
@@ -65,6 +68,7 @@ To reproduce my results I provide the following commands along with the results.
         --use_pretrained "pretrained_3DETR"
         --no_detection </pre></td>
         <td>37.08</td>
+        <td>26.56</td>
         <td>26.56</td>
         <td>xyz + color + height</td>
     </tr>
