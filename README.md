@@ -1,6 +1,6 @@
 # Scientific Paper Classification using Visual and Textual Features
 
-<p align="center"><img src="paper & figures/qual_analysis.jpg" width="800px"/></p>
+<p align="center"><img src="paper & figures/Qualitative_results.jpg" width="800px"/></p>
 
 ## Introduction
 3D visual grounding is the task of localizing a target object in a 3D scene given a natural language description. This work focuses on developing a transformer architecture for bounding box prediction around a target object that is described by a natural language description.
