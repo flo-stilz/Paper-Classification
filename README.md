@@ -42,7 +42,7 @@ To reproduce my results I provide the following commands along with the results 
     </tr>
     <tr>
         <td>Keywords/Area</td>
-        <td><pre lang="shell">python keyword_prediction.py 
+        <td><pre lang="shell">python Code/keyword_prediction.py 
         --gpu 'GPU-NUMBER' --input title+abstract</pre></td>
         <td>78.25%</td>
         <td>58.07%</td>
@@ -51,7 +51,7 @@ To reproduce my results I provide the following commands along with the results 
     </tr>
     <tr>
         <td>Publication Year</td>
-        <td><pre lang="shell">python paper_classification.py 
+        <td><pre lang="shell">python Code/paper_classification.py 
         --gpu 'GPU-NUMBER' --input title+abstract+image
         </pre></td>
         <td>75.15%</td>
@@ -61,7 +61,7 @@ To reproduce my results I provide the following commands along with the results 
     </tr>
     <tr>
         <td>Citation/Year Count</td>
-        <td><pre lang="shell">python cite_prediction.py 
+        <td><pre lang="shell">python Code/cite_prediction.py 
         --gpu 'GPU-NUMBER' --input title+abstract+image 
         </pre></td>
         <td>54.69%</td>
