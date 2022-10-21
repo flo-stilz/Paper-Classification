@@ -21,7 +21,8 @@ The architecture used for this project is seperated in three main parts namely T
 
 
 ## Results
-To reproduce my results I provide the following commands along with the results.
+To reproduce my results I provide the following commands along with the results for the best models for each of the three tasks.
+
 
 <table>
     <col>
@@ -29,10 +30,10 @@ To reproduce my results I provide the following commands along with the results.
     <colgroup span="2"></colgroup>
     <col>
     <tr>
-        <th rowspan=2>Name</th>
+        <th rowspan=2>Task</th>
         <th rowspan=2>Command</th>
         <th colspan=3 scope="colgroup">Overall</th>
-        <th rowspan=2>Comments</th>
+        <th rowspan=2>Input Features</th>
     </tr>
     <tr>
         <td>F1-Micro</td>
@@ -40,38 +41,33 @@ To reproduce my results I provide the following commands along with the results.
         <td>Accuracy</td>
     </tr>
     <tr>
-        <td>ScanRefer (Baseline)</td>
-        <td><pre lang="shell">python scripts/train.py 
-        --use_color --lr 1e-3 --batch_size 14</pre></td>
-        <td>37.05</td>
-        <td>23.93</td>
-        <td>23.93</td>
-        <td>xyz + color + height</td>
+        <td>Keywords/Area</td>
+        <td><pre lang="shell">python keyword_prediction.py 
+        --gpu <GPU-NUMBER> --input title+abstract</pre></td>
+        <td>78.25%</td>
+        <td>58.07%</td>
+        <td>57.28%</td>
+        <td>Title + Abstract</td>
     </tr>
     <tr>
-        <td>ScanRefer with pretrained VoteNet (optimized Baseline)</td>
-        <td><pre lang="shell">python scripts/train.py 
-        --use_color --use_chunking 
-        --use_pretrained "pretrained_VoteNet" 
-        --lr 1e-3 --batch_size 14</pre></td>
-        <td>37.11</td>
-        <td>25.21</td>
-        <td>25.21</td>
-        <td>xyz + color + height</td>
+        <td>Publication Year</td>
+        <td><pre lang="shell">python paper_classification.py 
+        --gpu <GPU-NUMBER> --input title+abstract+image
+        </pre></td>
+        <td>75.15%</td>
+        <td>68.89%</td>
+        <td>75.15%</td>
+        <td>Title + Abstract + Front Page</td>
     </tr>
     <tr>
-        <td>Ours (pretrained 3DETR-m + GRU + vTransformer) </td>
-        <td><pre lang="shell">python scripts/train.py 
-        --use_color --use_chunking 
-        --detection_module 3detr 
-        --match_module transformer
-        --use_pretrained "pretrained_3DETR"
-        --no_detection </pre></td>
-        <td>37.08</td>
-        <td>26.56</td>
-        <td>26.56</td>
-        <td>xyz + color + height</td>
+        <td>Citation/Year Count</td>
+        <td><pre lang="shell">python cite_prediction.py 
+        --gpu <GPU-NUMBER> --input title+abstract+image 
+        </pre></td>
+        <td>54.69%</td>
+        <td>46.45%</td>
+        <td>54.68%</td>
+        <td>Title + Abstract + Front Page</td>
     </tr>
 
 </table>
-
