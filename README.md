@@ -31,7 +31,7 @@ To reproduce my results I provide the following commands along with the results.
     <tr>
         <th rowspan=2>Name</th>
         <th rowspan=2>Command</th>
-        <th colspan=2 scope="colgroup">Overall</th>
+        <th colspan=3 scope="colgroup">Overall</th>
         <th rowspan=2>Comments</th>
     </tr>
     <tr>
