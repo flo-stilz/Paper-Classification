@@ -12,7 +12,7 @@ from the [Technical University of Munich](https://www.tum.de/en/).
 
 ## Architecture
 The architecture used for this project is as follows:
-<p align="center"><img src="paper & figures/network_architecture.png" width="1000px"/></p>
+<p align="center"><img src="paper & figures/network_architecture.jpg" width="1000px"/></p>
 
 
 ## Results
