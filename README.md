@@ -12,7 +12,7 @@ These tasks are achieved by utilizing both visual and textual features. The visu
 
 
 ## Setup + Dataset
-For the setup and dataset preparation please contact [Florian Stilz](https://github.com/flo-stilz/)
+For the setup and dataset preparation please contact [Florian Stilz](https://flo-stilz.github.io/)
 from the [Technical University of Munich](https://www.tum.de/en/).
 
 ## Architecture
